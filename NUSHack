@@ -1,0 +1,1288 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0f1419">
+<link rel="manifest" href="./manifest.webmanifest">
+<title>SafeSync — Offline Safety Processes</title>
+
+<!-- ========================================================= -->
+<!-- 🛡️ FIREWALL LAYER 1: STRICT CONTENT SECURITY POLICY (CSP) -->
+<!-- Blocks malicious script injections and unauthorized API calls. -->
+<!-- ========================================================= -->
+<meta http-equiv="Content-Security-Policy" content="
+  default-src 'self'; 
+  script-src 'self' 'unsafe-inline'; 
+  style-src 'self' 'unsafe-inline'; 
+  connect-src 'self' https://*.supabase.co wss://*.supabase.co https://gclqppihansstrwgjjdf.supabase.co; 
+  img-src 'self' data: blob:;
+">
+
+<style>
+:root{--bg:#0f1419;--card:#1a2129;--card2:#212b36;--line:#2a3441;--fg:#e6edf3;--mut:#8b98a5;--acc:#3fb950;--warn:#d29922;--bad:#f85149;--blue:#388bfd}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--fg);font:15px/1.45 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
+body.offline{filter:saturate(.55)}
+button{font:inherit;cursor:pointer;border-radius:8px;border:1px solid var(--line);background:var(--card2);color:var(--fg);padding:8px 12px;transition:.15s}
+button:hover{border-color:#3d4b5c}button:active{transform:translateY(1px)}button:disabled{opacity:.55;cursor:default}
+button.primary{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+button.ok{background:#1f6f36;border-color:#2ea043;color:#fff}
+button.ghost{background:transparent;border-color:var(--line)}
+input,select{font:inherit}
+
+/* Modal */
+#modal-overlay{position:fixed;top:0;left:0;right:0;bottom:0;background:rgba(0,0,0,0.7);display:flex;align-items:center;justify-content:center;z-index:100;padding:20px}
+#modal-overlay[hidden]{display:none}
+.modal{background:var(--card);border:1px solid var(--line);border-radius:12px;width:100%;max-width:400px;padding:20px}
+.modal h3{margin-top:0}
+.modal label{display:block;font-size:13px;color:var(--mut);margin:12px 0 6px}
+.modal input,.modal select{width:100%;padding:10px;background:#0d1318;border:1px solid var(--line);border-radius:8px;color:var(--fg)}
+.modal .actions{display:flex;gap:10px;margin-top:20px}
+
+#auth-screen{min-height:100vh;display:flex;align-items:center;justify-content:center;padding:20px}
+#auth-screen[hidden]{display:none}
+.auth-card{background:var(--card);border:1px solid var(--line);border-radius:14px;padding:28px;width:100%;max-width:440px}
+.auth-brand{font-size:24px;font-weight:700;text-align:center;letter-spacing:.3px;margin-bottom:4px}
+.auth-brand span{color:var(--acc)}
+.auth-sub{font-size:12px;text-align:center;color:var(--mut);margin-bottom:20px}
+.fw-progress{display:flex;gap:8px;margin-bottom:20px}
+.fw-step{flex:1;font-size:11px;text-align:center;padding:6px 4px;border-radius:6px;border:1px solid var(--line);background:#0d1318;color:var(--mut)}
+.fw-step.active{border-color:var(--blue);color:var(--blue);background:#0d1a2a}
+.fw-step.done{border-color:var(--acc);color:var(--acc);background:#0d2016}
+.auth-card h2{font-size:18px;margin:0 0 6px}
+.auth-card .sub{font-size:13px;color:var(--mut);margin:0 0 16px}
+.auth-card label{display:block;font-size:12px;color:var(--mut);margin:12px 0 6px}
+.auth-card input[type=text],.auth-card input[type=email],.auth-card input[type=password]{
+  width:100%;padding:12px;background:#0d1318;border:1px solid var(--line);border-radius:8px;color:var(--fg);font:inherit}
+.auth-card input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(56,139,253,.18)}
+.auth-card button.full{width:100%;padding:12px;margin-top:12px;font-weight:600}
+.auth-card .link{background:none;border:none;color:var(--blue);font-size:13px;padding:0;cursor:pointer;text-align:center;width:100%;margin-top:12px}
+.auth-card .link:hover{text-decoration:underline}
+.auth-divider{display:flex;align-items:center;gap:10px;margin:16px 0;color:var(--mut);font-size:12px}
+.auth-divider::before,.auth-divider::after{content:"";flex:1;height:1px;background:var(--line)}
+.google-btn{display:flex;align-items:center;justify-content:center;gap:10px;padding:12px;background:#fff;color:#1a1a1a;border:1px solid #dadce0;border-radius:8px;font-weight:600;width:100%;cursor:pointer;font-size:14px}
+.google-btn:hover{background:#f8f9fa}
+.google-btn svg{width:18px;height:18px}
+.auth-message{display:none;padding:10px 12px;border-radius:8px;font-size:13px;margin-top:14px;line-height:1.4;white-space:pre-wrap}
+.auth-message.show{display:block}
+.auth-message.error{background:#3a1d1d;color:#ffb4ae;border:1px solid #f85149}
+.auth-message.info{background:#12283a;color:#c8dcf5;border:1px solid #388bfd}
+.auth-message.success{background:#12341f;color:#b6f0c0;border:1px solid #2ea043}
+.auth-message.warn{background:#3a2a10;color:#ffd99c;border:1px solid #d29922}
+.strength-bar{height:6px;background:#0d1318;border-radius:3px;overflow:hidden;margin:8px 0 4px;border:1px solid var(--line)}
+.strength-bar > div{height:100%;width:0;transition:width .2s,background .2s;background:var(--bad)}
+.strength-bar.weak > div{background:var(--bad);width:20%}
+.strength-bar.fair > div{background:var(--warn);width:40%}
+.strength-bar.good > div{background:var(--blue);width:65%}
+.strength-bar.strong > div{background:var(--acc);width:100%}
+.strength-label{font-size:11px;color:var(--mut);margin-bottom:6px}
+.strength-feedback{font-size:11px;color:var(--warn);margin-bottom:8px}
+.pin-boxes{display:flex;gap:8px;justify-content:center;margin:20px 0}
+.pin-boxes input{width:44px;height:56px;text-align:center;font-size:24px;font-weight:600;padding:0;margin:0;background:#0d1318;border:1px solid var(--line);border-radius:8px;color:var(--fg)}
+.pin-boxes input:focus{outline:none;border-color:var(--blue);box-shadow:0 0 0 3px rgba(56,139,253,.18)}
+.demo-code{padding:12px;border-radius:8px;background:#3a2a10;color:#ffd99c;border:1px solid #d29922;margin:14px 0;font-size:13px;line-height:1.5}
+.demo-code b{font-family:ui-monospace,monospace;font-size:20px;letter-spacing:2px;color:#fff;display:block;margin:6px 0}
+.demo-code .label{font-size:10px;text-transform:uppercase;letter-spacing:.6px;opacity:.8}
+.who{font-size:13px;text-align:center;color:var(--mut);margin-bottom:14px}
+.who b{color:var(--fg)}
+.session-note{font-size:11px;text-align:center;color:var(--mut);margin-top:16px;padding-top:14px;border-top:1px solid var(--line)}
+
+#app-screen[hidden]{display:none}
+header{display:flex;align-items:center;gap:12px;padding:14px 18px;border-bottom:1px solid var(--line);position:sticky;top:0;background:var(--bg);z-index:5}
+header h1{font-size:17px;margin:0;letter-spacing:.3px}header h1 span{color:var(--acc)}
+.hdr-right{margin-left:auto;display:flex;align-items:center;gap:8px;flex-wrap:wrap}
+.pill{font-size:13px;padding:6px 11px;border-radius:999px;font-weight:600}
+.pill.online{background:#12341f;color:var(--acc);border:1px solid #2ea043}
+.pill.offline{background:#3a1d1d;color:var(--bad);border:1px solid #f85149}
+.dev{font:12px ui-monospace,monospace;color:var(--mut);border:1px dashed var(--line);padding:5px 9px;border-radius:6px}
+.statusbar{display:flex;gap:18px;flex-wrap:wrap;padding:9px 18px;font-size:13px;color:var(--mut);border-bottom:1px solid var(--line);background:#131a21}
+.statusbar b{color:var(--fg)}
+nav{display:flex;gap:6px;padding:12px 18px 0;flex-wrap:wrap;max-width:900px;margin-inline:auto}
+nav button{border-radius:8px 8px 0 0;border-bottom-color:transparent}
+nav button.active{background:var(--card);border-color:var(--line);border-bottom-color:var(--card);color:#fff;font-weight:600}
+main{padding:14px 18px 60px;max-width:900px;margin-inline:auto}
+section[hidden]{display:none}
+.card{background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px 16px;margin-bottom:12px}
+.card-h{display:flex;align-items:center;gap:10px;margin-bottom:10px}.card-h h3{margin:0;font-size:15px}
+.tag{font-size:11px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut);border:1px solid var(--line);padding:2px 7px;border-radius:5px}
+.rev{margin-left:auto;font:11px ui-monospace,monospace;color:var(--mut)}
+.field{margin:10px 0}.field label{display:block;font-size:13px;color:var(--mut);margin-bottom:5px}
+.seg{display:flex;gap:6px;flex-wrap:wrap}.seg button{flex:1;min-width:88px;padding:11px 8px}
+.seg button[aria-pressed="true"]{background:var(--blue);border-color:var(--blue);color:#fff;font-weight:600}
+.seg button[data-val="blocked"][aria-pressed="true"]{background:#8e2a25;border-color:var(--bad)}
+textarea{width:100%;min-height:64px;background:#0d1318;color:var(--fg);border:1px solid var(--line);border-radius:8px;padding:10px;font:inherit;resize:vertical}
+.hint{font-size:12px;color:var(--mut);margin-top:6px}
+.save-ind{font-size:11px;color:var(--mut);margin-left:8px}
+.pend-chip{font-size:10px;font-weight:700;color:#1a1300;background:var(--warn);padding:1px 6px;border-radius:4px;margin-left:6px}
+.state-chip{font:11px ui-monospace,monospace;color:#8b98a5;margin-left:6px}
+.badge-warn{font-size:11px;font-weight:700;color:#1a1300;background:var(--warn);padding:2px 7px;border-radius:5px}
+.op{font:12px ui-monospace,monospace;background:#0d1318;border:1px solid var(--line);border-radius:8px;padding:9px 11px;margin-bottom:8px;color:var(--mut);word-break:break-all}.op b{color:var(--fg)}
+.two{display:grid;grid-template-columns:1fr 1fr;gap:10px}@media(max-width:620px){.two{grid-template-columns:1fr}}
+.box{background:#0d1318;border:1px solid var(--line);border-radius:8px;padding:10px}
+.box h4{margin:0 0 6px;font-size:12px;text-transform:uppercase;letter-spacing:.6px;color:var(--mut)}
+.box .v{font-weight:600;word-break:break-word}
+.chain{font:12px ui-monospace,monospace;border-left:2px solid var(--line);padding:0 0 0 12px;margin:0 0 12px 6px;color:var(--mut)}.chain b{color:var(--fg);display:block;font-family:inherit}.chain .h{color:#4a5a6b;font-size:11px}
+.empty{color:var(--mut);text-align:center;padding:34px 10px;font-style:italic}
+.warnbox{background:#3a1d1d;border:1px solid #f85149;color:#ffb4ae;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+.infobox{background:#12283a;border:1px solid #388bfd;color:#c8dcf5;border-radius:8px;padding:10px 12px;font-size:13px;margin-bottom:12px}
+pre{background:#0d1318;border:1px solid var(--line);border-radius:8px;padding:12px;overflow:auto;font-size:12px;color:#b9c6d3}
+code{background:#0d1318;padding:1px 5px;border-radius:4px;font-size:.9em;font-family:ui-monospace,monospace}
+#toast{position:fixed;bottom:22px;left:50%;transform:translate(-50%,20px);background:#0d1318;border:1px solid var(--line);border-radius:10px;padding:11px 16px;font-size:14px;opacity:0;pointer-events:none;transition:.25s;z-index:99}
+#toast.show{opacity:1;transform:translate(-50%,0)}
+</style>
+</head>
+<body>
+
+<div id="modal-overlay" hidden>
+  <div class="modal">
+    <h3>Create New Process</h3>
+    <label for="taskTitle">Process Title</label>
+    <input id="taskTitle" type="text" placeholder="e.g., Morning Patrol — Bay 4">
+    <label for="taskTemplate">Template</label>
+    <select id="taskTemplate">
+      <option value="patrol">Patrol (Gate, Lights, Notes)</option>
+      <option value="inspection">Inspection (Pressure, Seal, Notes)</option>
+      <option value="incident">Incident (Contained, Hazard, Details)</option>
+    </select>
+    <div class="actions">
+      <button class="ghost" id="modalCancel" style="flex:1">Cancel</button>
+      <button class="primary" id="modalCreate" style="flex:1">Create</button>
+    </div>
+  </div>
+</div>
+
+<div id="auth-screen">
+  <div class="auth-card">
+    <div class="auth-brand">🛡 Safe<span>Sync</span></div>
+    <div class="auth-sub">Offline-first safety · Double firewall</div>
+    <div id="auth-progress"></div>
+    <div id="auth-body"></div>
+    <div id="auth-message" class="auth-message"></div>
+    <div class="session-note">Session is memory-only. Refreshing logs you out.</div>
+  </div>
+</div>
+
+<div id="app-screen" hidden>
+  <header>
+    <h1>Safe<span>Sync</span></h1>
+    <div class="hdr-right">
+      <span class="dev" id="devBadge">—</span>
+      <span class="dev" id="orgBadge">—</span>
+      <span class="dev" id="userBadge">—</span>
+      <button id="netBtn" class="pill online">Online</button>
+      <button id="syncBtn" class="primary">Sync now</button>
+      <button id="signOutBtn" class="ghost" style="font-size:12px">Sign out</button>
+    </div>
+  </header>
+  <div class="statusbar">
+    <span><b id="qCount">0</b> queued</span>
+    <span><b id="cCount">0</b> conflicts</span>
+    <span><b id="fCount">0</b> failed</span>
+    <span>Last full sync: <b id="lastSync">never</b></span>
+    <span id="netHint"></span>
+  </div>
+  <nav>
+    <button data-tab="processes" class="active">Processes</button>
+    <button data-tab="sync">Sync Center</button>
+    <button data-tab="conflicts">Conflicts</button>
+    <button data-tab="audit">Audit Ledger</button>
+  </nav>
+  <main>
+    <section id="tab-processes">
+      <div style="display:flex; justify-content:flex-end; margin-bottom:12px">
+        <button class="primary" id="newTaskBtn">+ New Process</button>
+      </div>
+      <div id="process-list"></div>
+    </section>
+    <section id="tab-sync" hidden></section>
+    <section id="tab-conflicts" hidden></section>
+    <section id="tab-audit" hidden></section>
+  </main>
+</div>
+
+<div id="toast"></div>
+
+<script>
+/* ================================================================
+   CONFIG
+   ================================================================ */
+const CFG = {
+  backend: 'supabase', 
+  supabaseUrl: 'https://gclqppihansstrwgjjdf.supabase.co',
+  supabaseKey: 'sb_publishable_0k5sRhSMNlEoUwEhpOqDEQ_Ga1kqBAu', // <--- YOUR KEY
+  orgId: null,
+  flaky: 0
+};
+
+/* ================================================================
+   UTILS
+   ================================================================ */
+const $ = s => document.querySelector(s);
+const sleep = ms => new Promise(r => setTimeout(r, ms));
+const clone = o => JSON.parse(JSON.stringify(o));
+const esc = s => String(s ?? '').replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const uuid = () => (crypto.randomUUID ? crypto.randomUUID() : 'id-' + Date.now().toString(36) + '-' + Math.random().toString(36).slice(2,10));
+const ck = (orgId, plainId) => orgId + '::' + plainId;
+const splitKey = k => { const i = k.indexOf('::'); return [k.slice(0,i), k.slice(i+2)]; };
+
+function toast(msg){
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 3200);
+}
+function authMsg(text, type='error'){
+  const el = $('#auth-message');
+  el.className = 'auth-message ' + type + ' show';
+  el.textContent = text;
+}
+function authMsgClear(){ $('#auth-message').className = 'auth-message'; }
+
+const rand5 = () => Math.random().toString(36).slice(2,7).toUpperCase();
+const DEVICE_RE = /^[A-Za-z0-9_-]{1,24}$/;
+const deviceId = (() => {
+  const q = new URLSearchParams(location.search).get('device');
+  if (q && DEVICE_RE.test(q)) return q;
+  const saved = sessionStorage.getItem('safesync.oauth_device');
+  if (saved && DEVICE_RE.test(saved)) return saved;
+  let d = localStorage.getItem('safesync.dev');
+  if (!d || !DEVICE_RE.test(d)){ d = 'D-' + rand5(); localStorage.setItem('safesync.dev', d); }
+  return d;
+})();
+
+function fnv1a(str){ let h = 2166136261;
+  for (let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}
+  return ('00000000'+(h>>>0).toString(16)).slice(-8);
+}
+async function auditHash(p){
+  if (crypto.subtle){
+    const b = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(p));
+    return 'sha256:' + [...new Uint8Array(b)].map(x=>x.toString(16).padStart(2,'0')).join('');
+  }
+  return 'fnv1a:' + fnv1a(p);
+}
+const cryptoAvailable = !!crypto.subtle;
+
+async function fetchWithTimeout(url, opts, ms=12000){
+  const ac = new AbortController(); const t = setTimeout(()=>ac.abort(), ms);
+  try { return await fetch(url, {...(opts||{}), signal: ac.signal}); }
+  finally { clearTimeout(t); }
+}
+
+function b64url(bytes){
+  return btoa(String.fromCharCode(...new Uint8Array(bytes))).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+
+/* ================================================================
+   EMAIL DOMAIN GATE
+   ================================================================ */
+const ALLOWED_DOMAINS = new Set(['gmail.com', 'googlemail.com', 'moe.edu.sg', 'students.edu.sg', 'gov.sg']);
+
+function isAllowedEmail(email){
+  const lower = String(email || '').trim().toLowerCase();
+  const m = lower.match(/^([a-z0-9](?:[a-z0-9._+-]{0,62}[a-z0-9])?)@([a-z0-9][a-z0-9.-]*\.[a-z]{2,})$/);
+  if (!m) return false;
+  const [, local, domain] = m;
+  if (local.includes('..')) return false;
+  return ALLOWED_DOMAINS.has(domain);
+}
+const isGmail = isAllowedEmail; // alias
+
+/* ================================================================
+   AUTH constants
+   ================================================================ */
+const AUTH = { 
+  PBKDF2_PASSWORD_ITER: 200000, 
+  PBKDF2_PIN_ITER: 50000, 
+  PBKDF2_CODE_ITER: 100000, 
+  PIN_LENGTH: 6, 
+  CODE_LENGTH: 6, 
+  SALT_BYTES: 16, 
+  PASSWORD_MIN_SCORE: 6, 
+  PASSWORD_MIN_LENGTH: 12, 
+  CODE_TTL_MS: 600000, 
+  CODE_RESEND_COOLDOWN_MS: 30000, 
+  CODE_MAX_RESENDS: 3 
+};
+
+const COMMON_PASSWORDS = new Set(['password','password1','password123','password1234','123456','1234567','12345678','123456789','1234567890','qwerty','qwerty123','qwertyuiop','abc123','letmein','welcome','welcome1','admin','administrator','iloveyou','monkey','dragon','sunshine','princess','football','baseball','shadow','master','superman','batman','trustno1','passw0rd','p@ssw0rd','p@ssword','changeme','default','guest','test','asdfghjkl','zxcvbnm','1q2w3e4r','111111','000000','qazwsx','letmein123']);
+
+const session = { authenticated: false, firewall1: false, firewall2: false, user: null, authToken: null, refreshToken: null, authExpiry: 0, pendingEmail: null, _demoCode: null };
+
+/* ================================================================
+   🛡️ FIREWALL LAYER 2: CRYPTOGRAPHY
+   ================================================================ */
+function randomSalt(){ return crypto.getRandomValues(new Uint8Array(AUTH.SALT_BYTES)); }
+function toB64(buf){ return btoa(String.fromCharCode(...new Uint8Array(buf))); }
+function fromB64(s){ return Uint8Array.from(atob(s), c => c.charCodeAt(0)); }
+
+async function pbkdf2(password, saltBytes, iterations){
+  if (!crypto.subtle){ return 'insecure-fallback:' + fnv1a(password + toB64(saltBytes)); }
+  const key = await crypto.subtle.importKey('raw', new TextEncoder().encode(password), 'PBKDF2', false, ['deriveBits']);
+  const bits = await crypto.subtle.deriveBits({ name:'PBKDF2', salt: saltBytes, iterations, hash:'SHA-256' }, key, 256);
+  return 'sha256-pbkdf2:' + toB64(bits);
+}
+async function constantTimeEqual(a, b){
+  if (typeof a !== 'string' || typeof b !== 'string' || a.length !== b.length) return false;
+  let diff = 0; for (let i=0;i<a.length;i++) diff |= a.charCodeAt(i) ^ b.charCodeAt(i);
+  return diff === 0;
+}
+async function generatePKCE(){
+  const rand = new Uint8Array(32); crypto.getRandomValues(rand);
+  const verifier = b64url(rand);
+  const challengeBuf = await crypto.subtle.digest('SHA-256', new TextEncoder().encode(verifier));
+  return { verifier, challenge: b64url(challengeBuf) };
+}
+
+/* ================================================================
+   🛡️ FIREWALL LAYER 3: IDLE AUTO-LOCK (3 MINS)
+   ================================================================ */
+let idleTimeout;
+function resetIdleTimer() {
+  clearTimeout(idleTimeout);
+  if (session.authenticated) {
+    idleTimeout = setTimeout(() => {
+      toast('🛡️ Firewall: Session locked due to inactivity.');
+      setTimeout(() => signOut(), 2000);
+    }, 3 * 60 * 1000); // 3 minutes
+  }
+}
+['mousedown', 'mousemove', 'keypress', 'scroll', 'touchstart'].forEach(evt => 
+  document.addEventListener(evt, resetIdleTimer, true)
+);
+
+/* ================================================================
+   Password strength
+   ================================================================ */
+function passwordStrength(pw){
+  if (!pw) return { score: 0, max: 9, label: 'empty', feedback: ['Enter a password'], cls: 'weak' };
+  let score = 0; const feedback = [];
+  const has = {
+    length: pw.length >= AUTH.PASSWORD_MIN_LENGTH, long: pw.length >= 16, lower: /[a-z]/.test(pw), upper: /[A-Z]/.test(pw), digit: /[0-9]/.test(pw), symbol: /[^A-Za-z0-9]/.test(pw), notCommon: !COMMON_PASSWORDS.has(pw.toLowerCase()), noRepeat: !/(.)\1{2,}/.test(pw), noSeq: !/(0123|1234|2345|3456|4567|5678|6789|abcd|bcde|cdef|qwer|asdf|zxcv)/i.test(pw),
+  };
+  if (has.length) score++; if (has.long) score++; if (has.lower) score++; if (has.upper) score++; if (has.digit) score++; if (has.symbol) score++; if (has.notCommon) score++; else feedback.push('Too common'); if (has.noRepeat) score++; else feedback.push('Avoid repeating characters'); if (has.noSeq) score++; else feedback.push('Avoid sequences like 1234'); if (!has.length) feedback.unshift(`At least ${AUTH.PASSWORD_MIN_LENGTH} characters`);
+  const cls = score <= 3 ? 'weak' : score <= 5 ? 'fair' : score <= 7 ? 'good' : 'strong';
+  return { score, max: 9, label: cls, feedback, cls };
+}
+
+/* ================================================================
+   IndexedDB
+   ================================================================ */
+function openDB(name, ver, upgrade){ return new Promise((res, rej) => { const r = indexedDB.open(name, ver); r.onupgradeneeded = () => upgrade(r.result); r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error); }); }
+function t1(db, s, m, run){ return new Promise((res, rej) => { let t; try { t = db.transaction(s, m); } catch(e){ return rej(e); } let out; t.oncomplete = () => res(out); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted')); try { run(t.objectStore(s), v => { out = v; }); } catch(e){ try{t.abort();}catch(_){} rej(e); } }); }
+const getAll = (db,n) => t1(db,n,'readonly', (s,set)=>{s.getAll().onsuccess=e=>set(e.target.result);});
+const getOne = (db,n,k) => t1(db,n,'readonly', (s,set)=>{s.get(k).onsuccess=e=>set(e.target.result);});
+const putOne = (db,n,v) => t1(db,n,'readwrite',(s)=>{s.put(v);});
+const delOne = (db,n,k) => t1(db,n,'readwrite',(s)=>{s.delete(k);});
+
+const LOCAL_DB = 'safesync.local.' + deviceId;
+const CLOUD_DB = 'safesync.cloud';
+let local, cloud;
+
+async function initDBs(){
+  local = await openDB(LOCAL_DB, 5, db => {
+    if (!db.objectStoreNames.contains('entities'))  db.createObjectStore('entities',  { keyPath:'_key' });
+    if (!db.objectStoreNames.contains('outbox'))    db.createObjectStore('outbox',    { keyPath:'opId' });
+    if (!db.objectStoreNames.contains('conflicts')) db.createObjectStore('conflicts', { keyPath:'id' });
+    if (!db.objectStoreNames.contains('failedOps')) db.createObjectStore('failedOps', { keyPath:'opId' });
+    if (!db.objectStoreNames.contains('audit'))     db.createObjectStore('audit',     { keyPath:'seq', autoIncrement:true });
+    if (!db.objectStoreNames.contains('meta'))      db.createObjectStore('meta',      { keyPath:'k' });
+    if (!db.objectStoreNames.contains('attempts'))  db.createObjectStore('attempts',  { keyPath:'id', autoIncrement:true });
+    if (!db.objectStoreNames.contains('auth'))      db.createObjectStore('auth',      { keyPath:'k' });
+    if (!db.objectStoreNames.contains('otp'))       db.createObjectStore('otp',       { keyPath:'k' });
+  });
+  cloud = await openDB(CLOUD_DB, 2, db => {
+    if (!db.objectStoreNames.contains('entities')) db.createObjectStore('entities', { keyPath:'_key' });
+    if (!db.objectStoreNames.contains('ops'))      db.createObjectStore('ops',      { keyPath:'opId' });
+    if (!db.objectStoreNames.contains('meta'))     db.createObjectStore('meta',     { keyPath:'k' });
+  });
+}
+
+/* ================================================================
+   Rate limiter & Code (demo only)
+   ================================================================ */
+async function recordAttempt(kind, success){
+  await putOne(local, 'attempts', { kind, success, ts: Date.now() });
+  if (success){ const all = await getAll(local, 'attempts'); for (const a of all){ if (a.kind === kind && !a.success) await delOne(local, 'attempts', a.id); } }
+}
+async function lockoutRemaining(kind){
+  const all = await getAll(local, 'attempts'); const cutoff = Date.now() - 1800000;
+  const fails = all.filter(a => a.kind === kind && !a.success && a.ts > cutoff);
+  if (!fails.length) return { ms: 0, count: 0 };
+  const base = kind === 'pin' ? 3 : kind === 'code' ? 4 : 2;
+  const secs = Math.min(3600, Math.pow(base, fails.length));
+  const ms = Math.max(0, Math.max(...fails.map(f => f.ts)) + secs * 1000 - Date.now());
+  return { ms, count: fails.length };
+}
+function randomCode(){ const arr = new Uint32Array(1); crypto.getRandomValues(arr); return String(100000 + (arr[0] % 900000)); }
+async function storeDemoCode(email, code){ const salt = randomSalt(); const hash = await pbkdf2(code, salt, AUTH.PBKDF2_CODE_ITER); await putOne(local, 'otp', { k: 'otp.' + email.toLowerCase(), email: email.toLowerCase(), hash, salt: toB64(salt), expiresAt: Date.now() + AUTH.CODE_TTL_MS, resends: 0, lastResendAt: Date.now() }); }
+async function consumeDemoCode(email, code){
+  const rec = await getOne(local, 'otp', 'otp.' + email.toLowerCase());
+  if (!rec || Date.now() > rec.expiresAt) throw new Error('Code expired — request a new one');
+  const hash = await pbkdf2(code, fromB64(rec.salt), AUTH.PBKDF2_CODE_ITER);
+  if (!await constantTimeEqual(hash, rec.hash)) throw new Error('Incorrect code');
+  await delOne(local, 'otp', rec.k); return true;
+}
+async function canResendCode(email){
+  const rec = await getOne(local, 'otp', 'otp.' + email.toLowerCase());
+  if (!rec) return { ok: true };
+  if (rec.resends >= AUTH.CODE_MAX_RESENDS) return { ok: false, reason: 'Too many resends' };
+  const wait = rec.lastResendAt + AUTH.CODE_RESEND_COOLDOWN_MS - Date.now();
+  return wait > 0 ? { ok: false, waitMs: wait } : { ok: true };
+}
+
+/* ================================================================
+   Auth UI
+   ================================================================ */
+let authView = 'login';
+
+function setFirewallStep(step){
+  const el = $('#auth-progress'); const labels = ['1 · Identity', '2 · Device PIN'];
+  if (step === 0) el.innerHTML = `<div class="fw-step active">${labels[0]}</div><div class="fw-step">${labels[1]}</div>`;
+  else if (step === 1) el.innerHTML = `<div class="fw-step done">${labels[0]} ✓</div><div class="fw-step active">${labels[1]}</div>`;
+  else el.innerHTML = `<div class="fw-step done">${labels[0]} ✓</div><div class="fw-step done">${labels[1]} ✓</div>`;
+}
+
+async function renderAuth(){
+  const body = $('#auth-body'); authMsgClear();
+  setFirewallStep(authView === 'login' || authView === 'signup' || authView === 'code' ? 0 : 1);
+  if (authView === 'login') return renderLogin(body);
+  if (authView === 'signup') return renderSignup(body);
+  if (authView === 'code') return renderCode(body);
+  if (authView === 'pin') return renderPin(body);
+  if (authView === 'pin-setup') return renderPinSetup(body);
+}
+
+function renderGoogleButton(container){
+  const btn = document.createElement('button');
+  btn.className = 'google-btn';
+  btn.innerHTML = `<svg viewBox="0 0 18 18"><path fill="#4285F4" d="M17.6 9.2c0-.6-.1-1.3-.2-1.9H9v3.6h4.8c-.2 1.1-.8 2-1.7 2.6v2.2h2.8c1.6-1.5 2.7-3.8 2.7-6.5z"/><path fill="#34A853" d="M9 18c2.4 0 4.4-.8 5.9-2.2l-2.8-2.2c-.8.5-1.8.9-3 .9-2.3 0-4.3-1.6-5-3.7H1.2v2.3C2.7 15.9 5.6 18 9 18z"/><path fill="#FBBC05" d="M4 10.8c-.2-.5-.3-1.1-.3-1.8s.1-1.3.3-1.8V4.9H1.2C.4 6.3 0 7.8 0 9s.4 2.7 1.2 4.1L4 10.8z"/><path fill="#EA4335" d="M9 3.6c1.3 0 2.5.4 3.4 1.3l2.5-2.5C13.4.9 11.4 0 9 0 5.6 0 2.7 2.1 1.2 4.9l2.8 2.2c.7-2.1 2.7-3.7 5-3.7z"/></svg>Sign in with Google`;
+  btn.onclick = startGoogleSignIn;
+  container.appendChild(btn);
+}
+
+async function renderLogin(container){
+  const accounts = await getAll(local, 'auth');
+  const hasLocalAccounts = accounts.some(a => a.k && a.k.startsWith('credentials.'));
+  if (!hasLocalAccounts && CFG.backend === 'demo'){ authView = 'signup'; return renderSignup(container); }
+
+  container.innerHTML = `
+    <h2>Sign in</h2>
+    <p class="sub">Firewall 1 of 2 — identity</p>
+    <form id="loginForm">
+      <label for="loginEmail">Email</label>
+      <input id="loginEmail" type="email" autocomplete="username" required>
+      <label for="loginPassword">Password</label>
+      <input id="loginPassword" type="password" autocomplete="current-password" required>
+      <button class="primary full" type="submit">Continue</button>
+    </form>
+    <div class="auth-divider">or</div>
+    <div id="googleSlot"></div>
+    <button class="link" id="toSignup">No account yet? Create one</button>`;
+  renderGoogleButton($('#googleSlot'));
+
+  $('#loginForm').onsubmit = async (e) => {
+    e.preventDefault(); authMsgClear();
+    const email = $('#loginEmail').value.trim().toLowerCase(); const pw = $('#loginPassword').value;
+    const lock = await lockoutRemaining('password');
+    if (lock.ms > 0) return authMsg(`Too many attempts. Locked for ${Math.ceil(lock.ms / 1000)}s.`);
+    try { await verifyPasswordAndAdvance(email, pw); }
+    catch (err){ await recordAttempt('password', false); await audit('AUTH password fail ' + email); const newLock = await lockoutRemaining('password'); authMsg(newLock.ms > 0 ? `Incorrect password. Locked for ${Math.ceil(newLock.ms / 1000)}s.` : (err.message || 'Sign in failed')); }
+  };
+  $('#toSignup').onclick = () => { authView = 'signup'; renderAuth(); };
+}
+
+async function verifyPasswordAndAdvance(email, password){
+  if (CFG.backend === 'supabase'){
+    const r = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/token?grant_type=password', { method: 'POST', headers: { apikey: CFG.supabaseKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password }) });
+    if (!r.ok){ const err = await r.json().catch(()=>({})); throw new Error(err.error_description || err.msg || 'Invalid email or password'); }
+    const d = await r.json();
+    session.authToken = d.access_token; session.refreshToken = d.refresh_token; session.authExpiry = Date.now() + d.expires_in * 1000;
+    session.user = { id: d.user.id, email: d.user.email || email, via: 'password' }; session.firewall1 = true;
+    await recordAttempt('password', true); await audit('AUTH password ok ' + email + ' (supabase)');
+  } else {
+    const record = await getOne(local, 'auth', 'credentials.' + email);
+    if (!record) throw new Error('No account for that email on this device');
+    const computed = await pbkdf2(password, fromB64(record.passwordSalt), AUTH.PBKDF2_PASSWORD_ITER);
+    if (!await constantTimeEqual(computed, record.passwordHash)) throw new Error('Incorrect password');
+    session.user = { id: 'local::' + email, email, via: 'password' }; session.firewall1 = true;
+    await recordAttempt('password', true); await audit('AUTH password ok ' + email + ' (demo)');
+  }
+  session.pendingEmail = email;
+  const pinRecord = await getOne(local, 'auth', 'pin.' + session.user.id);
+  authView = pinRecord ? 'pin' : 'pin-setup'; renderAuth();
+}
+
+async function renderSignup(container){
+  container.innerHTML = `
+    <h2>Create account</h2>
+    <p class="sub">Approved domains only</p>
+    <form id="signupForm" novalidate>
+      <label for="suEmail">Email</label>
+      <input id="suEmail" type="email" autocomplete="username" placeholder="you@gmail.com" required>
+      <div class="hint" id="emailHint" style="margin-top:4px">Allowed: Gmail, @moe.edu.sg, @students.edu.sg, @gov.sg</div>
+      <label for="suPassword">Password</label>
+      <input id="suPassword" type="password" autocomplete="new-password" required>
+      <div class="strength-bar" id="strengthBar"><div></div></div>
+      <div class="strength-label" id="strengthLabel">Enter a password…</div>
+      <div class="strength-feedback" id="strengthFeedback"></div>
+      <label for="suConfirm">Confirm password</label>
+      <input id="suConfirm" type="password" autocomplete="new-password" required>
+      <button class="primary full" id="suSubmit" type="submit" disabled>Send Confirmation Code</button>
+    </form>
+    <div class="auth-divider">or</div>
+    <div id="googleSlot"></div>
+    <button class="link" id="toLogin">Already have an account? Sign in</button>`;
+  renderGoogleButton($('#googleSlot'));
+
+  const emailEl = $('#suEmail'); const emailHint = $('#emailHint'); const pwEl = $('#suPassword'); const bar = $('#strengthBar'); const label = $('#strengthLabel'); const feedback = $('#strengthFeedback'); const submit = $('#suSubmit');
+
+  const checkEmail = () => {
+    const v = emailEl.value.trim();
+    if (!v){ emailHint.textContent = 'Allowed: Gmail, @moe.edu.sg, @students.edu.sg, @gov.sg'; emailHint.style.color = ''; return false; }
+    if (isAllowedEmail(v)){ emailHint.textContent = '✓ Accepted'; emailHint.style.color = 'var(--acc)'; return true; }
+    emailHint.textContent = 'Not an approved domain (no underscores)'; emailHint.style.color = 'var(--bad)'; return false;
+  };
+  const refreshStrength = () => {
+    const s = passwordStrength(pwEl.value); bar.className = 'strength-bar ' + (pwEl.value ? s.cls : '');
+    label.textContent = pwEl.value ? `Strength: ${s.label} (${s.score}/${s.max})` : 'Enter a password…';
+    feedback.textContent = s.feedback.slice(0, 2).join(' · '); return s;
+  };
+  const refresh = () => { const emailOk = checkEmail(); const s = refreshStrength(); submit.disabled = !(emailOk && s.score >= AUTH.PASSWORD_MIN_SCORE); };
+  emailEl.oninput = refresh; pwEl.oninput = refresh; refresh();
+
+  $('#signupForm').onsubmit = async (e) => {
+    e.preventDefault(); authMsgClear();
+    const email = emailEl.value.trim().toLowerCase(); const pw = pwEl.value; const confirm = $('#suConfirm').value;
+    if (!isAllowedEmail(email)) return authMsg('Approved domains only. No underscores.', 'error');
+    const s = passwordStrength(pw);
+    if (s.score < AUTH.PASSWORD_MIN_SCORE) return authMsg('Password too weak.', 'error');
+    if (pw !== confirm) return authMsg('Passwords do not match.', 'error');
+    submit.disabled = true; submit.textContent = 'Sending Code…';
+    try {
+      session.pendingEmail = email;
+      if (CFG.backend === 'supabase') await supabaseSignupAndDispatchCode(email, pw);
+      else await demoSignupAndDispatchCode(email, pw);
+      await audit('AUTH signup code dispatched ' + email);
+      authView = 'code'; renderAuth();
+    } catch (err){ authMsg(err.message || 'Signup failed', 'error'); submit.disabled = false; submit.textContent = 'Send Confirmation Code'; }
+  };
+  $('#toLogin').onclick = () => { authView = 'login'; renderAuth(); };
+}
+
+async function demoSignupAndDispatchCode(email, password){
+  const existing = await getOne(local, 'auth', 'credentials.' + email);
+  if (existing) throw new Error('An account with that email already exists');
+  const salt = randomSalt(); const hash = await pbkdf2(password, salt, AUTH.PBKDF2_PASSWORD_ITER);
+  await putOne(local, 'auth', { k: 'pending_credentials.' + email, email, passwordHash: hash, passwordSalt: toB64(salt), createdAt: Date.now() });
+  const code = randomCode(); await storeDemoCode(email, code); session._demoCode = code;
+}
+
+async function supabaseSignupAndDispatchCode(email, password){
+  const r = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/signup', { method: 'POST', headers: { apikey: CFG.supabaseKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ email, password, data: { signup_source: 'safesync' } }) });
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok){ const msg = d.msg || d.error_description || d.error || 'Signup failed'; if (/already registered/i.test(msg)) throw new Error('Account exists. Sign in instead.'); throw new Error(msg); }
+  if (d.access_token){
+    session.authToken = d.access_token; session.refreshToken = d.refresh_token; session.authExpiry = Date.now() + d.expires_in * 1000;
+    session.user = { id: d.user.id, email: d.user.email || email, via: 'password' }; session.firewall1 = true;
+  }
+}
+
+async function renderCode(container){
+  const email = session.pendingEmail;
+  if (!email){ authView = 'signup'; return renderAuth(); }
+  if (CFG.backend === 'supabase' && session.firewall1){
+    const pinRecord = await getOne(local, 'auth', 'pin.' + session.user.id);
+    authView = pinRecord ? 'pin' : 'pin-setup'; return renderAuth();
+  }
+  const demoBanner = CFG.backend === 'demo' && session._demoCode ? `<div class="demo-code"><span class="label">⚠ Demo mode — no real email sent</span>In production this code is emailed to <b style="display:inline;font-size:13px">${esc(email)}</b>.<b>${esc(session._demoCode)}</b>Real Code requires <code>backend:"supabase"</code>.</div>` : '';
+  container.innerHTML = `
+    <h2>Verify your email</h2>
+    <p class="sub">${CFG.backend === 'supabase' ? 'We sent a 6-digit confirmation code to your inbox.' : 'Enter the code shown below.'}</p>
+    <div class="who">Sending to <b>${esc(email)}</b></div>
+    ${demoBanner}
+    <div class="pin-boxes" id="codeBoxes">${Array.from({length: AUTH.CODE_LENGTH}, (_, i) => `<input type="tel" inputmode="numeric" maxlength="1" autocomplete="one-time-code" data-i="${i}">`).join('')}</div>
+    <button class="primary full" id="codeSubmit" disabled>Verify Code</button>
+    <button class="link" id="codeResend">Resend code</button>
+    <button class="link" id="codeBack">← Use a different email</button>`;
+
+  let codeValue = ''; const boxes = Array.from(container.querySelectorAll('#codeBoxes input')); const submit = $('#codeSubmit');
+  const onUpdate = () => { codeValue = boxes.map(b => b.value).join(''); submit.disabled = codeValue.length !== AUTH.CODE_LENGTH; };
+  boxes.forEach((input, i) => {
+    input.oninput = (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 1); if (e.target.value && i < boxes.length-1) boxes[i+1].focus(); onUpdate(); if (codeValue.length === AUTH.CODE_LENGTH) setTimeout(() => submit.click(), 120); };
+    input.onkeydown = (e) => { if (e.key === 'Backspace' && !e.target.value && i > 0) boxes[i-1].focus(); };
+    input.onpaste = (e) => { e.preventDefault(); const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, ''); for (let j=0;j<boxes.length && j<paste.length;j++) boxes[j].value = paste[j]; onUpdate(); if (codeValue.length === AUTH.CODE_LENGTH) setTimeout(() => submit.click(), 120); };
+  });
+  boxes[0].focus();
+
+  submit.onclick = async () => {
+    authMsgClear(); const lock = await lockoutRemaining('code');
+    if (lock.ms > 0) return authMsg(`Too many attempts. Locked for ${Math.ceil(lock.ms / 1000)}s.`);
+    submit.disabled = true; submit.textContent = 'Verifying…';
+    try {
+      if (CFG.backend === 'supabase') await supabaseVerifyCode(email, codeValue);
+      else await demoVerifyCode(email, codeValue);
+      session._demoCode = null; await recordAttempt('code', true); await audit('AUTH code ok ' + email);
+      const pinRecord = await getOne(local, 'auth', 'pin.' + session.user.id);
+      authView = pinRecord ? 'pin' : 'pin-setup'; renderAuth();
+    } catch (err){
+      await recordAttempt('code', false); boxes.forEach(b => b.value = ''); boxes[0].focus(); onUpdate(); submit.disabled = false; submit.textContent = 'Verify Code';
+      const newLock = await lockoutRemaining('code'); authMsg(newLock.ms > 0 ? `Incorrect code. Locked for ${Math.ceil(newLock.ms / 1000)}s.` : (err.message || 'Incorrect code'));
+    }
+  };
+  $('#codeResend').onclick = async () => {
+    const can = await canResendCode(email);
+    if (!can.ok) return authMsg(can.waitMs ? `Wait ${Math.ceil(can.waitMs/1000)}s.` : can.reason, 'warn');
+    try {
+      if (CFG.backend === 'supabase'){ const r = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/resend', { method: 'POST', headers: { apikey: CFG.supabaseKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'signup', email }) }); if (!r.ok){ const e = await r.json().catch(()=>({})); throw new Error(e.msg || 'Resend failed'); } }
+      else { const code = randomCode(); await storeDemoCode(email, code); session._demoCode = code; const rec = await getOne(local, 'otp', 'otp.' + email); if (rec){ rec.resends = (rec.resends || 0) + 1; rec.lastResendAt = Date.now(); await putOne(local, 'otp', rec); } }
+      await audit('AUTH code resent ' + email); authMsg('A new code has been sent.', 'success'); renderAuth();
+    } catch (err){ authMsg('Resend failed: ' + err.message, 'error'); }
+  };
+  $('#codeBack').onclick = async () => {
+    if (session.pendingEmail){ if (CFG.backend === 'demo'){ await delOne(local, 'auth', 'pending_credentials.' + session.pendingEmail); await delOne(local, 'otp', 'otp.' + session.pendingEmail); } session.pendingEmail = null; session._demoCode = null; }
+    authView = 'signup'; renderAuth();
+  };
+}
+
+async function demoVerifyCode(email, code){
+  await consumeDemoCode(email, code);
+  const pending = await getOne(local, 'auth', 'pending_credentials.' + email);
+  if (!pending) throw new Error('Signup session expired');
+  await putOne(local, 'auth', { k: 'credentials.' + email, email, passwordHash: pending.passwordHash, passwordSalt: pending.passwordSalt, createdAt: pending.createdAt, verifiedAt: Date.now() });
+  await delOne(local, 'auth', 'pending_credentials.' + email);
+  session.user = { id: 'local::' + email, email, via: 'password' }; session.firewall1 = true;
+}
+
+async function supabaseVerifyCode(email, code){
+  const r = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/verify', { method: 'POST', headers: { apikey: CFG.supabaseKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ type: 'signup', email, token: code }) });
+  const d = await r.json().catch(()=>({}));
+  if (!r.ok) throw new Error(d.msg || d.error_description || 'Invalid code');
+  if (!d.access_token) throw new Error('No session returned');
+  session.authToken = d.access_token; session.refreshToken = d.refresh_token; session.authExpiry = Date.now() + d.expires_in * 1000;
+  session.user = { id: d.user.id, email: d.user.email || email, via: 'password' }; session.firewall1 = true;
+}
+
+async function renderPin(container){
+  const email = session.user?.email || session.pendingEmail;
+  container.innerHTML = `
+    <h2>Firewall 2 of 2</h2><div class="who">Signing in as <b>${esc(email)}</b></div>
+    <label>Enter your 6-digit PIN</label>
+    <div class="pin-boxes" id="pinBoxes">${Array.from({length: AUTH.PIN_LENGTH}, (_, i) => `<input type="tel" inputmode="numeric" maxlength="1" autocomplete="off" data-i="${i}">`).join('')}</div>
+    <button class="primary full" id="pinSubmit" disabled>Verify PIN</button>
+    <button class="link" id="backToPassword">← Back to sign-in</button>`;
+  let pinValue = ''; const boxes = Array.from(container.querySelectorAll('#pinBoxes input')); const submit = $('#pinSubmit');
+  const onUpdate = () => { pinValue = boxes.map(b => b.value).join(''); submit.disabled = pinValue.length !== AUTH.PIN_LENGTH; };
+  boxes.forEach((input, i) => {
+    input.oninput = (e) => { e.target.value = e.target.value.replace(/\D/g, '').slice(0, 1); if (e.target.value && i < boxes.length-1) boxes[i+1].focus(); onUpdate(); if (pinValue.length === AUTH.PIN_LENGTH) setTimeout(() => submit.click(), 100); };
+    input.onkeydown = (e) => { if (e.key === 'Backspace' && !e.target.value && i > 0) boxes[i-1].focus(); };
+    input.onpaste = (e) => { e.preventDefault(); const paste = (e.clipboardData.getData('text') || '').replace(/\D/g, ''); for (let j=0;j<boxes.length && j<paste.length;j++) boxes[j].value = paste[j]; onUpdate(); if (pinValue.length === AUTH.PIN_LENGTH) setTimeout(() => submit.click(), 100); };
+  });
+  boxes[0].focus();
+  submit.onclick = async () => {
+    authMsgClear(); const lock = await lockoutRemaining('pin');
+    if (lock.ms > 0) return authMsg(`PIN locked for ${Math.ceil(lock.ms / 1000)}s.`);
+    try { await verifyPinAndComplete(pinValue); }
+    catch (err){ await recordAttempt('pin', false); await audit('AUTH pin fail ' + email); boxes.forEach(b => b.value = ''); boxes[0].focus(); onUpdate(); const newLock = await lockoutRemaining('pin'); authMsg(newLock.ms > 0 ? `Wrong PIN. Locked for ${Math.ceil(newLock.ms / 1000)}s.` : 'Wrong PIN. Try again.'); }
+  };
+  $('#backToPassword').onclick = () => { session.firewall1 = false; session.user = null; session.pendingEmail = null; if (CFG.backend === 'supabase'){ session.authToken = null; session.refreshToken = null; } authView = 'login'; renderAuth(); };
+}
+
+async function verifyPinAndComplete(pin){
+  const record = await getOne(local, 'auth', 'pin.' + session.user.id);
+  if (!record) throw new Error('No PIN set up');
+  const computed = await pbkdf2(pin, fromB64(record.salt), AUTH.PBKDF2_PIN_ITER);
+  if (!await constantTimeEqual(computed, record.hash)) throw new Error('Incorrect PIN');
+  session.firewall2 = true; await recordAttempt('pin', true); await audit('AUTH pin ok ' + session.user.email);
+  await completeAuth();
+}
+
+async function renderPinSetup(container){
+  const email = session.user?.email || session.pendingEmail;
+  container.innerHTML = `
+    <h2>Set up your PIN</h2><p class="sub">Firewall 2 of 2 — this device only</p><div class="who">Setting up for <b>${esc(email)}</b></div>
+    <label>Choose a 6-digit PIN</label>
+    <div class="pin-boxes" id="pin1">${Array.from({length: AUTH.PIN_LENGTH}, () => `<input type="tel" inputmode="numeric" maxlength="1" autocomplete="off">`).join('')}</div>
+    <label>Confirm PIN</label>
+    <div class="pin-boxes" id="pin2">${Array.from({length: AUTH.PIN_LENGTH}, () => `<input type="tel" inputmode="numeric" maxlength="1" autocomplete="off">`).join('')}</div>
+    <button class="primary full" id="pinSetupSubmit" disabled>Set PIN & sign in</button>
+    <div class="hint" style="text-align:center;margin-top:14px">Avoid obvious PINs (000000, 123456).</div>`;
+
+  function wireBoxes(group){
+    const boxes = Array.from(group.querySelectorAll('input'));
+    boxes.forEach((input, i) => {
+      input.oninput = (e) => { e.target.value = e.target.value.replace(/\D/g,'').slice(0,1); if (e.target.value && i < boxes.length-1) boxes[i+1].focus(); update(); };
+      input.onkeydown = (e) => { if (e.key === 'Backspace' && !e.target.value && i > 0) boxes[i-1].focus(); };
+      input.onpaste = (e) => { e.preventDefault(); const paste = (e.clipboardData.getData('text')||'').replace(/\D/g,''); for (let j=0;j<boxes.length && j<paste.length;j++) boxes[j].value = paste[j]; update(); };
+    });
+    boxes[0].focus(); return boxes;
+  }
+  const b1 = wireBoxes($('#pin1')); const b2 = wireBoxes($('#pin2')); const submit = $('#pinSetupSubmit');
+  function update(){
+    const p1 = b1.map(x=>x.value).join(''); const p2 = b2.map(x=>x.value).join('');
+    submit.disabled = !(p1.length === AUTH.PIN_LENGTH && p1 === p2);
+    if (p1.length === AUTH.PIN_LENGTH && p2.length === AUTH.PIN_LENGTH && p1 !== p2) authMsg('PINs do not match.', 'error');
+    else if (p1 === p2 && p1.length === AUTH.PIN_LENGTH) authMsgClear();
+  }
+  submit.onclick = async () => {
+    const p1 = b1.map(x=>x.value).join(''); const p2 = b2.map(x=>x.value).join('');
+    if (p1 !== p2) return authMsg('PINs do not match.', 'error');
+    if (p1.length !== AUTH.PIN_LENGTH) return authMsg('PIN must be 6 digits.', 'error');
+    if (/^(.)\1{5}$/.test(p1) || ['123456','654321','000000','111111','012345'].includes(p1)) return authMsg('Too obvious.', 'error');
+    try {
+      const salt = randomSalt(); const hash = await pbkdf2(p1, salt, AUTH.PBKDF2_PIN_ITER);
+      await putOne(local, 'auth', { k: 'pin.' + session.user.id, userId: session.user.id, hash, salt: toB64(salt), createdAt: Date.now() });
+      await audit('AUTH pin setup ' + session.user.email); session.firewall2 = true; await completeAuth();
+    } catch (err){ authMsg('Failed to save PIN: ' + err.message, 'error'); }
+  };
+}
+
+/* ================================================================
+   Google OAuth
+   ================================================================ */
+async function startGoogleSignIn(){
+  if (CFG.backend !== 'supabase' || !CFG.supabaseUrl || !CFG.supabaseKey) return authMsg('Needs Supabase backend.', 'info');
+  try {
+    const { verifier, challenge } = await generatePKCE();
+    sessionStorage.setItem('safesync.pkce_verifier', verifier);
+    sessionStorage.setItem('safesync.oauth_in_flight', '1');
+    sessionStorage.setItem('safesync.oauth_device', deviceId);
+    sessionStorage.setItem('safesync.oauth_at', String(Date.now()));
+  } catch (e){ return authMsg('Browser does not support secure OAuth.', 'error'); }
+
+  const redirect = window.location.origin + window.location.pathname;
+  const qs = new URLSearchParams({ provider: 'google', redirect_to: redirect, code_challenge: challenge, code_challenge_method: 'S256' });
+  window.location.href = CFG.supabaseUrl + '/auth/v1/authorize?' + qs.toString();
+}
+
+async function handleOAuthReturn(){
+  const url = new URL(window.location.href);
+  const q = url.searchParams;
+  const hash = url.hash.startsWith('#') ? url.hash.slice(1) : '';
+
+  const hasCode = q.has('code');
+  const hasImplicit = hash.includes('access_token=');
+  const hasError = q.has('error') || q.has('error_description')
+                || (hash && (hash.includes('error=') || hash.includes('error_description=')));
+
+  if (!hasCode && !hasImplicit && !hasError) return false;
+
+  const wasInFlight = sessionStorage.getItem('safesync.oauth_in_flight') === '1';
+  const startedAt = Number(sessionStorage.getItem('safesync.oauth_at') || 0);
+  sessionStorage.removeItem('safesync.oauth_in_flight');
+  sessionStorage.removeItem('safesync.oauth_at');
+  const verifier = sessionStorage.getItem('safesync.pkce_verifier');
+  sessionStorage.removeItem('safesync.pkce_verifier');
+  const savedDevice = sessionStorage.getItem('safesync.oauth_device');
+  sessionStorage.removeItem('safesync.oauth_device');
+
+  history.replaceState(null, '', url.pathname + (savedDevice ? '?device=' + encodeURIComponent(savedDevice) : ''));
+
+  if (hasError){
+    const msg = q.get('error_description') || q.get('error')
+              || new URLSearchParams(hash).get('error_description')
+              || new URLSearchParams(hash).get('error')
+              || 'OAuth failed';
+    if (/access_denied/i.test(msg) || /user.*cancel/i.test(msg)){
+      authMsg('Sign-in cancelled.', 'info');
+    } else {
+      authMsg('Google sign-in failed: ' + msg, 'error');
+    }
+    return true;
+  }
+
+  if (!wasInFlight && !verifier && !hasImplicit) {
+    authMsg('OAuth session expired or lost. Please try again.', 'warn'); return true;
+  }
+
+  try {
+    let accessToken = null; let refreshToken = null; let expiresIn = 3600;
+    if (hasCode){
+      if (!verifier) throw new Error('Missing PKCE verifier — try again');
+      const res = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/token?grant_type=pkce', {
+        method: 'POST', headers: { apikey: CFG.supabaseKey, 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auth_code: q.get('code'), code_verifier: verifier })
+      });
+      const d = await res.json().catch(()=>({}));
+      if (!res.ok) throw new Error(d.msg || d.error_description || `Token exchange failed (${res.status})`);
+      accessToken = d.access_token; refreshToken = d.refresh_token; expiresIn = d.expires_in || 3600;
+    } else if (hasImplicit){
+      const params = new URLSearchParams(hash); accessToken = params.get('access_token'); refreshToken = params.get('refresh_token'); expiresIn = Number(params.get('expires_in')) || 3600;
+    }
+
+    if (!accessToken) throw new Error('No access token in OAuth return');
+    const vr = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/user', { headers: { apikey: CFG.supabaseKey, Authorization: 'Bearer ' + accessToken } });
+    if (!vr.ok) throw new Error('Token rejected by Supabase');
+    const user = await vr.json();
+
+    if (!isAllowedEmail(user.email || '')) { authMsg(`Signed in as ${user.email}. SafeSync requires an approved domain.`, 'error'); return true; }
+
+    session.authToken = accessToken; session.refreshToken = refreshToken; session.authExpiry = Date.now() + expiresIn * 1000;
+    session.user = { id: user.id, email: user.email, via: 'google' }; session.firewall1 = true; session.pendingEmail = user.email;
+    await audit('AUTH google ok ' + user.email);
+
+    const pinRecord = await getOne(local, 'auth', 'pin.' + user.id);
+    authView = pinRecord ? 'pin' : 'pin-setup'; renderAuth();
+    return true;
+  } catch (err){ authMsg('Google sign-in failed: ' + err.message, 'error'); return true; }
+}
+
+/* ================================================================
+   Post-auth boot
+   ================================================================ */
+async function completeAuth(){
+  session.authenticated = true; 
+  resetIdleTimer(); // 🛡️ Start the firewall idle timer
+  await audit('LOGIN ' + (session.user?.email || '?'));
+  let bootError = null;
+  try { await bootStorage(); } catch (e){ bootError = e.message; }
+  $('#auth-screen').hidden = true; $('#auth-screen').setAttribute('aria-hidden', 'true'); $('#app-screen').hidden = false;
+  $('#userBadge').textContent = session.user?.email || '—';
+  await render();
+  if (bootError){ toast('Sync setup issue: ' + bootError); $('#process-list').innerHTML = `<div class="warnbox"><b>Sync not ready:</b> ${esc(bootError)}</div>`; }
+  if (isOnline() && (await getAll(local, 'outbox')).length > 0) doSync();
+}
+
+async function signOut(){
+  clearTimeout(idleTimeout); // 🛡️ Stop the firewall idle timer
+  await audit('LOGOUT ' + (session.user?.email || '?'));
+  session.authenticated = false; session.user = null; session.authToken = null; session.refreshToken = null;
+  localStorage.removeItem('safesync.oauth_device'); sessionStorage.clear(); location.reload();
+}
+
+/* ================================================================
+   Supabase Transport & Sync Logic
+   ================================================================ */
+async function ensureAuth(){
+  if (CFG.backend !== 'supabase') return null;
+  if (!session.authenticated) throw new Error('Not authenticated');
+  if (session.authToken && session.authExpiry > Date.now() + 60000) return session.authToken;
+  if (!session.refreshToken) throw new Error('Session expired');
+  const r = await fetchWithTimeout(CFG.supabaseUrl + '/auth/v1/token?grant_type=refresh_token', { method: 'POST', headers: { apikey: CFG.supabaseKey, 'Content-Type': 'application/json' }, body: JSON.stringify({ refresh_token: session.refreshToken }) });
+  if (!r.ok){ session.authenticated = false; throw new Error('Session expired'); }
+  const d = await r.json(); session.authToken = d.access_token; session.refreshToken = d.refresh_token; session.authExpiry = Date.now() + d.expires_in * 1000;
+  return session.authToken;
+}
+const sbHeaders = () => ({ apikey: CFG.supabaseKey, Authorization: 'Bearer ' + (session.authToken || CFG.supabaseKey) });
+
+async function sbFetch(url, opts){
+  await ensureAuth();
+  const build = () => ({ ...(opts||{}), headers: { 'Content-Type':'application/json', ...sbHeaders(), ...((opts&&opts.headers)||{}) } });
+  let res = await fetchWithTimeout(url, build());
+  if (res.status === 401){ session.authToken = null; session.authExpiry = 0; await ensureAuth(); res = await fetchWithTimeout(url, build()); }
+  return res;
+}
+
+const SupabaseTransport = {
+  name: 'supabase',
+  async createEntity(op){
+    const res = await sbFetch(CFG.supabaseUrl + '/rest/v1/rpc/safesync_create_entity', {
+      method:'POST', body: JSON.stringify({ p_org_id: op.orgId, p_entity_id: op.plainId, p_title: op.title, p_type: op.type, p_meta: op.meta, p_fields: op.fields })
+    });
+    if (!res.ok){ const txt = await res.text().catch(()=>''); throw new Error('createEntity HTTP ' + res.status + ' ' + txt.slice(0,200)); }
+    return res.json();
+  },
+  async applyOp(op){
+    const res = await sbFetch(CFG.supabaseUrl + '/rest/v1/rpc/safesync_apply_op', {
+      method:'POST', body: JSON.stringify({ p_org_id: op.orgId, p_op_id: op.opId, p_entity_id: op.plainId, p_field: op.field, p_value: op.value, p_base_rev: op.baseFieldRev })
+    });
+    if (!res.ok){ const txt = await res.text().catch(()=>''); throw new Error('applyOp HTTP ' + res.status + ' ' + txt.slice(0,200)); }
+    return res.json();
+  },
+  async pullSince(since, orgId){
+    let cursor = since; const out = [];
+    for (let page=0; page<100; page++){
+      const url = CFG.supabaseUrl + '/rest/v1/safesync_entities?org_id=eq.' + encodeURIComponent(orgId) + '&cursor=gt.' + cursor + '&order=cursor.asc&limit=500&select=*';
+      const res = await sbFetch(url); if (!res.ok) throw new Error('pull HTTP ' + res.status);
+      const rows = await res.json(); if (!rows.length) break;
+      for (const r of rows){
+        out.push({ _key: ck(r.org_id, r.id), orgId: r.org_id, plainId: r.id, title: r.title, type: r.type, meta: r.meta || {}, fields: r.fields || {}, fieldRevs: r.field_revs || {}, cursor: Number(r.cursor), updatedAt: r.updated_at ? Date.parse(r.updated_at) : Date.now() });
+        cursor = Number(r.cursor);
+      }
+    }
+    return out;
+  }
+};
+
+const DemoTransport = {
+  name: 'demo',
+  async createEntity(op){ return { status: 'ok' }; },
+  async applyOp(op){ if (CFG.flaky && Math.random() < CFG.flaky) throw new Error('SIMULATED_NETWORK_ERROR'); await sleep(60); return { status: 'ok', rev: op.baseFieldRev + 1 }; },
+  async pullSince(since, orgId){ if (CFG.flaky && Math.random() < CFG.flaky) throw new Error('SIMULATED_NETWORK_ERROR'); await sleep(60); const rows = await getAll(cloud, 'entities'); return rows.filter(r => (r.cursor ?? 0) > since && r.orgId === orgId); }
+};
+const Transport = CFG.backend === 'supabase' ? SupabaseTransport : DemoTransport;
+
+async function resolveOrgId(){
+  if (CFG.backend === 'demo'){ CFG.orgId = 'demo-org'; return; }
+  const res = await sbFetch(CFG.supabaseUrl + '/rest/v1/safesync_org_members?select=org_id&limit=1');
+  if (!res.ok) throw new Error('Cannot read memberships: ' + res.status);
+  const rows = await res.json();
+  if (!rows.length) throw new Error('Your account has no organisation. Run the provisioning SQL.');
+  CFG.orgId = rows[0].org_id;
+}
+
+async function bootStorage(){
+  await resolveOrgId();
+  const count = await t1(local, 'entities', 'readonly', (s, set) => { s.count().onsuccess = e => set(e.target.result); });
+  if (count === 0 && navigator.onLine !== false){
+    try { const remote = await Transport.pullSince(-1, CFG.orgId); await pullWriteLocalAtomic(remote, remote.reduce((a,e) => Math.max(a, e.cursor ?? -1), -1)); } catch(e){ console.warn('initial pull failed', e); }
+  }
+}
+
+/* ================================================================
+   Sync & Task Logic
+   ================================================================ */
+let auditChain = Promise.resolve();
+function audit(text){ auditChain = auditChain.then(() => _audit(text)).catch(e => console.warn('audit failed', e)); return auditChain; }
+async function _audit(text){ const rows = await getAll(local, 'audit'); const prevHash = rows.length ? rows[rows.length-1].hash : 'GENESIS'; const ts = Date.now(); const hash = await auditHash(prevHash + '|' + ts + '|' + deviceId + '|' + text); await putOne(local, 'audit', { ts, text, deviceId, prevHash, hash }); }
+
+const MAX_FIELD_LEN = 2000;
+
+function saveFieldLocalAtomic(entityKey, field, value){
+  return new Promise((res, rej) => {
+    let t; try { t = local.transaction(['entities','outbox'],'readwrite'); } catch(e){ return rej(e); }
+    const ents = t.objectStore('entities'), ob = t.objectStore('outbox'); let result;
+    t.oncomplete = () => res(result); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    if (typeof value === 'string' && value.length > MAX_FIELD_LEN) value = value.slice(0, MAX_FIELD_LEN);
+    const g = ents.get(entityKey);
+    g.onsuccess = () => {
+      const ent = g.result; if (!ent){ result = { error:'missing' }; return; }
+      const [orgId, plainId] = splitKey(entityKey); const baseRev = (ent.fieldRevs && ent.fieldRevs[field]) || 0;
+      ent.fields = ent.fields || {}; ent.fieldRevs = ent.fieldRevs || {}; ent.fields[field] = value; ents.put(ent);
+      const allReq = ob.getAll();
+      allReq.onsuccess = () => {
+        const existing = allReq.result.find(o => o.entityKey === entityKey && o.field === field);
+        let op;
+        if (existing){ existing.value = value; existing.version = (existing.version || 1) + 1; existing.ts = Date.now(); ob.put(existing); op = existing; }
+        else { op = { opId: uuid(), action: 'update', orgId, plainId, entityKey, field, value, baseFieldRev: baseRev, version: 1, deviceId, ts: Date.now() }; ob.put(op); }
+        result = { op, baseRev };
+      };
+    };
+  });
+}
+
+async function commitField(entityKey, field, value, opts){
+  opts = opts || {}; let r;
+  try { r = await saveFieldLocalAtomic(entityKey, field, value); } catch(e){ toast('Save failed: ' + e.message); return { error: e.message }; }
+  if (r && r.error){ toast('Process not found'); return r; }
+  await audit('LOCAL ' + entityKey + '.' + field + ' = ' + String(value).slice(0,60));
+  if (opts.silent){ updateFieldUI(entityKey, field, value); renderStatus(); } else { render(); }
+  return r;
+}
+
+async function createNewTask(title, templateId){
+  const templates = {
+    patrol: { type: 'Patrol', meta: { gate_locked: { label: 'Gate locked', type: 'status' }, lights_ok: { label: 'Lights OK', type: 'status' }, notes: { label: 'Notes', type: 'text' } }, fields: { gate_locked: 'pending', lights_ok: 'pending', notes: '' } },
+    inspection: { type: 'Inspection', meta: { pressure_ok: { label: 'Pressure in green', type: 'status' }, seal_intact: { label: 'Seal intact', type: 'status' }, notes: { label: 'Notes', type: 'text' } }, fields: { pressure_ok: 'pending', seal_intact: 'pending', notes: '' } },
+    incident: { type: 'Incident', meta: { contained: { label: 'Spill contained', type: 'status' }, hazard: { label: 'Area made safe', type: 'status' }, notes: { label: 'Details', type: 'text' } }, fields: { contained: 'pending', hazard: 'pending', notes: '' } }
+  };
+  const t = templates[templateId]; const plainId = uuid();
+  const ent = { _key: ck(CFG.orgId, plainId), orgId: CFG.orgId, plainId, title, type: t.type, meta: t.meta, fields: clone(t.fields), fieldRevs: Object.fromEntries(Object.keys(t.fields).map(f=>[f,0])), cursor: 0, updatedAt: Date.now() };
+  await putOne(local, 'entities', ent);
+  const op = { opId: uuid(), action: 'create', orgId: CFG.orgId, plainId, entityKey: ent._key, title, type: t.type, meta: t.meta, fields: t.fields, version: 1, deviceId, ts: Date.now() };
+  await putOne(local, 'outbox', op);
+  await audit('CREATE ' + ent._key); render();
+}
+
+function pullWriteLocalAtomic(remoteEntities, newCursor){
+  return new Promise((res, rej) => {
+    let t; try { t = local.transaction(['entities','outbox','meta'],'readwrite'); } catch(e){ return rej(e); }
+    const ents = t.objectStore('entities'), ob = t.objectStore('outbox'), meta = t.objectStore('meta'); let changed = 0;
+    t.oncomplete = () => res({ changed }); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    const obReq = ob.getAll();
+    obReq.onsuccess = () => {
+      const pending = new Set(obReq.result.map(o => o.entityKey + '|' + o.field));
+      if (!remoteEntities.length){ meta.put({ k:'lastCursor.' + CFG.orgId, v: newCursor }); return; }
+      let remaining = remoteEntities.length;
+      for (const ce of remoteEntities){
+        const g = ents.get(ce._key);
+        g.onsuccess = () => {
+          const le = g.result;
+          if (!le){ ents.put(clone(ce)); changed++; }
+          else {
+            le.fields = le.fields || {}; le.fieldRevs = le.fieldRevs || {}; le.meta = le.meta || ce.meta || {}; let touched = false;
+            for (const f of Object.keys(ce.fields || {})){ if (pending.has(ce._key + '|' + f)) continue; const cr = (ce.fieldRevs && ce.fieldRevs[f]) || 0; const lr = le.fieldRevs[f] || 0; if (cr > lr){ le.fields[f] = ce.fields[f]; le.fieldRevs[f] = cr; touched = true; } }
+            if ((ce.cursor ?? 0) > (le.cursor ?? 0)) le.cursor = ce.cursor;
+            if (touched){ ents.put(le); changed++; }
+          }
+          if (--remaining === 0) meta.put({ k:'lastCursor.' + CFG.orgId, v: newCursor });
+        };
+      }
+    };
+  });
+}
+
+let pullChain = Promise.resolve();
+function pull(){ const run = pullChain.catch(()=>{}).then(_pullOnce); pullChain = run.catch(()=>{}); return run; }
+async function _pullOnce(){ const m = await getOne(local, 'meta', 'lastCursor.' + CFG.orgId); const since = m ? m.v : -1; const remote = await Transport.pullSince(since, CFG.orgId); if (!remote.length) return 0; const maxC = remote.reduce((a,e) => Math.max(a, e.cursor ?? since), since); const { changed } = await pullWriteLocalAtomic(remote, maxC); return changed; }
+
+let syncing = false; let forcedOffline = false;
+const isOnline = () => !forcedOffline && navigator.onLine !== false;
+let retryDelayMs = 0, retryTimer = null; const RETRY_MIN = 2000, RETRY_MAX = 60000;
+function scheduleRetry(){ if (!isOnline()) return; clearTimeout(retryTimer); retryTimer = setTimeout(() => { if (isOnline() && !syncing) doSync(); }, retryDelayMs); retryDelayMs = retryDelayMs ? Math.min(retryDelayMs*2, RETRY_MAX) : RETRY_MIN; }
+function resetRetry(){ clearTimeout(retryTimer); retryDelayMs = 0; }
+
+function ackOkAtomic(snapshot, result){
+  return new Promise((res, rej) => {
+    let t; try { t = local.transaction(['entities','outbox'],'readwrite'); } catch(e){ return rej(e); }
+    const ents = t.objectStore('entities'), ob = t.objectStore('outbox'); let outcome;
+    t.oncomplete = () => res(outcome); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    const og = ob.get(snapshot.opId);
+    og.onsuccess = () => {
+      const current = og.result; const eg = ents.get(snapshot.entityKey);
+      eg.onsuccess = () => {
+        const ent = eg.result;
+        if (ent && snapshot.action !== 'create' && Number.isFinite(result.rev)){ ent.fieldRevs = ent.fieldRevs || {}; const prev = ent.fieldRevs[snapshot.field] || 0; const next = Math.max(prev, result.rev); if (next !== prev){ ent.fieldRevs[snapshot.field] = next; ents.put(ent); } }
+        if (!current){ outcome = 'gone'; return; }
+        if (current.version === snapshot.version){ ob.delete(snapshot.opId); outcome = 'deleted'; }
+        else { if(snapshot.action !== 'create') current.baseFieldRev = Math.max(current.baseFieldRev, result.rev); ob.put(current); outcome = 'kept'; }
+      };
+    };
+  });
+}
+
+function ackConflictAtomic(snapshot, result){
+  return new Promise((res, rej) => {
+    let t; try { t = local.transaction(['conflicts','outbox'],'readwrite'); } catch(e){ return rej(e); }
+    const conf = t.objectStore('conflicts'), ob = t.objectStore('outbox'); let outcome;
+    t.oncomplete = () => res(outcome); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    const og = ob.get(snapshot.opId);
+    og.onsuccess = () => {
+      const current = og.result; const useValue = current ? current.value : snapshot.value;
+      const scan = conf.getAll();
+      scan.onsuccess = () => {
+        const existing = scan.result.find(c => c.opId === snapshot.opId);
+        if (!existing){ conf.put({ id: uuid(), opId: snapshot.opId, entityKey: snapshot.entityKey, orgId: snapshot.orgId, plainId: snapshot.plainId, field: snapshot.field, localValue: useValue, serverValue: result.serverValue, baseRev: snapshot.baseFieldRev, serverRev: result.serverRev, deviceId, ts: Date.now() }); }
+        ob.delete(snapshot.opId); outcome = 'conflict';
+      };
+    };
+  });
+}
+
+function ackMissingAtomic(snapshot){
+  return new Promise((res, rej) => {
+    let t; try { t = local.transaction(['outbox','failedOps'],'readwrite'); } catch(e){ return rej(e); }
+    const ob = t.objectStore('outbox'), fb = t.objectStore('failedOps'); let outcome;
+    t.oncomplete = () => res(outcome); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    const og = ob.get(snapshot.opId);
+    og.onsuccess = () => {
+      const current = og.result;
+      if (current){ fb.put({ ...current, reason:'missing', failedAt: Date.now() }); ob.delete(snapshot.opId); }
+      outcome = 'failed';
+    };
+  });
+}
+
+async function ackSnapshot(snapshot, result){
+  const status = result && result.status;
+  if (status === 'ok' || status === 'dup'){ await ackOkAtomic(snapshot, result); return; }
+  if (status === 'conflict'){ await ackConflictAtomic(snapshot, result); return; }
+  if (status === 'missing'){ await ackMissingAtomic(snapshot); return; }
+  await audit('UNKNOWN RESPONSE ' + String(status)); throw new Error('Unknown server response: ' + String(status));
+}
+
+async function doSync(){
+  if (syncing) return; if (!isOnline()){ toast('Offline'); return; }
+  syncing = true; const btn = $('#syncBtn'); btn.disabled = true; btn.textContent = 'Syncing…';
+  let ok=0, dup=0, conflicts=0, failed=0, pulled=0, pullOk = true, opsTotal = 0;
+  try {
+    const ops = await getAll(local, 'outbox'); opsTotal = ops.length;
+    for (const op of ops){
+      const snap = { opId: op.opId, version: op.version || 1, action: op.action || 'update', orgId: op.orgId, plainId: op.plainId, entityKey: op.entityKey, field: op.field, value: op.value, baseFieldRev: op.baseFieldRev, title: op.title, type: op.type, meta: op.meta, fields: op.fields };
+      let r;
+      try { r = snap.action === 'create' ? await Transport.createEntity(snap) : await Transport.applyOp(snap); }
+      catch(netErr){ failed = opsTotal - (ok+dup+conflicts); break; }
+      try {
+        if (snap.action === 'create' && r.status === 'ok'){ await ackOkAtomic(snap, r); ok++; }
+        else {
+          if (!r || !['ok','dup','conflict','missing'].includes(r.status)) throw new Error('Unknown server response: ' + String(r && r.status));
+          await ackSnapshot(snap, r);
+          if (r.status === 'ok') ok++; else if (r.status === 'dup') dup++; else if (r.status === 'conflict') conflicts++; else if (r.status === 'missing') failed++;
+        }
+      } catch(ackErr){ failed++; console.error('[safesync] ack failed', ackErr, r); }
+    }
+    if (!failed){ try { pulled = await pull(); } catch(e){ pullOk = false; } }
+  } finally { syncing = false; btn.disabled = false; btn.textContent = 'Sync now'; }
+
+  const complete = !failed && pullOk;
+  if (complete){ await putOne(local, 'meta', { k:'lastSync', v: Date.now() }); await audit('SYNC complete ok=' + ok + ' dup=' + dup + ' conflicts=' + conflicts + ' pulled=' + pulled); resetRetry(); }
+  else { await audit('SYNC incomplete ok=' + ok + ' dup=' + dup + ' conflicts=' + conflicts + ' failed=' + failed + ' pullOk=' + pullOk); scheduleRetry(); }
+  const parts = []; if (ok) parts.push(ok + ' pushed'); if (dup) parts.push(dup + ' duplicate'); if (conflicts) parts.push(conflicts + ' conflict'); if (failed) parts.push(failed + ' failed'); if (!pullOk) parts.push('pull FAILED'); else if (pulled) parts.push(pulled + ' pulled');
+  toast((complete ? 'Synced: ' : 'Partial sync: ') + (parts.join(' · ') || 'nothing to do'));
+  try { broadcast({ type:'sync', from: deviceId }); } catch(_){}
+  render();
+}
+
+function resolveConflictAtomic(conflictId, choice){
+  return new Promise((res, rej) => {
+    let t; try { t = local.transaction(['entities','outbox','conflicts'],'readwrite'); } catch(e){ return rej(e); }
+    const ents = t.objectStore('entities'), ob = t.objectStore('outbox'), conf = t.objectStore('conflicts'); let outcome;
+    t.oncomplete = () => res(outcome); t.onerror = () => rej(t.error); t.onabort = () => rej(t.error || new Error('aborted'));
+    const g = conf.get(conflictId);
+    g.onsuccess = () => {
+      const c = g.result; if (!c){ outcome = { error:'conflict not found' }; return; }
+      const eg = ents.get(c.entityKey);
+      eg.onsuccess = () => {
+        const ent = eg.result; if (!ent){ outcome = { error:'entity missing' }; return; }
+        ent.fields = ent.fields || {}; ent.fieldRevs = ent.fieldRevs || {};
+        if (choice === 'local'){ ent.fields[c.field] = c.localValue; ent.fieldRevs[c.field] = Math.max(ent.fieldRevs[c.field] || 0, c.serverRev); ob.put({ opId: uuid(), action: 'update', orgId: c.orgId, plainId: c.plainId, entityKey: c.entityKey, field: c.field, value: c.localValue, baseFieldRev: c.serverRev, version: 1, deviceId, ts: Date.now() }); }
+        else { ent.fields[c.field] = c.serverValue; ent.fieldRevs[c.field] = Math.max(ent.fieldRevs[c.field] || 0, c.serverRev); }
+        ents.put(ent); conf.delete(conflictId); outcome = { ok: true, choice };
+      };
+    };
+  });
+}
+async function resolveConflict(id, choice){ let r; try { r = await resolveConflictAtomic(id, choice); } catch(e){ return toast('Resolve failed: ' + e.message); } if (r && r.error){ toast('Cannot resolve: ' + r.error); return; } await audit('RESOLVE ' + choice + ' conflict ' + id); render(); }
+async function retryFailedOp(opId){ const op = await getOne(local, 'failedOps', opId); if (!op) return; const fresh = { ...op, version: 1, ts: Date.now(), reason: undefined, failedAt: undefined }; await putOne(local, 'outbox', fresh); await delOne(local, 'failedOps', opId); await audit('RETRY ' + opId); render(); }
+async function discardFailedOp(opId){ await delOne(local, 'failedOps', opId); await audit('DISCARD ' + opId); render(); }
+
+const bc = ('BroadcastChannel' in window) ? new BroadcastChannel('safesync') : { postMessage(){}, onmessage:null };
+function broadcast(m){ try { bc.postMessage(m); } catch(_){} }
+bc.onmessage = async ev => { if (ev.data && ev.data.type === 'sync' && ev.data.from !== deviceId && isOnline() && session.authenticated){ try { await pull(); render(); } catch(_){} } };
+
+let tab = 'processes';
+function switchTab(name){ tab = name; document.querySelectorAll('nav button').forEach(b => b.classList.toggle('active', b.dataset.tab === name)); ['processes','sync','conflicts','audit'].forEach(t => { $('#tab-' + t).hidden = (t !== name); }); render(); }
+function stateGlyph(v){ return v==='pending'?'○ pending':v==='done'?'✓ done':v==='blocked'?'✕ blocked':''; }
+
+async function renderStatus(){
+  const q = (await getAll(local, 'outbox')).length; const c = (await getAll(local, 'conflicts')).length; const f = (await getAll(local, 'failedOps')).length; const ls = await getOne(local, 'meta', 'lastSync');
+  $('#qCount').textContent = q; $('#cCount').textContent = c; $('#fCount').textContent = f; $('#lastSync').textContent = ls ? new Date(ls.v).toLocaleTimeString() : 'never';
+  $('#devBadge').textContent = deviceId; $('#orgBadge').textContent = CFG.orgId || '—';
+  const on = isOnline(); const btn = $('#netBtn'); btn.textContent = forcedOffline ? 'Force offline' : (navigator.onLine === false ? 'Browser offline' : 'Online'); btn.className = 'pill ' + (on ? 'online' : 'offline'); document.body.classList.toggle('offline', !on);
+  if (!on) $('#netHint').textContent = q + ' change(s) saved'; else if (f) $('#netHint').textContent = '⚠ ' + f + ' failed op(s)'; else if (q) $('#netHint').textContent = 'Ready to sync'; else $('#netHint').textContent = 'All changes synced';
+}
+
+function updateFieldUI(entityKey, field, value){ const card = document.querySelector('.card[data-key="' + CSS.escape(entityKey) + '"]'); if (!card) return; const ta = card.querySelector('textarea[data-field="' + CSS.escape(field) + '"]'); if (ta && ta.value !== String(value)) ta.value = value; }
+
+async function renderProcesses(){
+  const ents = (await getAll(local, 'entities')).filter(e => e.orgId === CFG.orgId);
+  ents.sort((a,b) => b.updatedAt - a.updatedAt);
+  const conflicts = await getAll(local, 'conflicts'); const outbox = await getAll(local, 'outbox'); const failed = await getAll(local, 'failedOps');
+  if (!ents.length){ $('#process-list').innerHTML = '<div class="infobox">No processes yet. Click <b>+ New Process</b> to create one.</div>'; return; }
+  
+  const html = ents.map(e => {
+    const hasConflict = conflicts.some(c => c.entityKey === e._key);
+    const fields = Object.keys(e.fields).map(f => {
+      const m = (e.meta && e.meta[f]) || { label:f, type:'text' }; const serverRev = (e.fieldRevs && e.fieldRevs[f]) || 0;
+      const pending = outbox.some(o => o.entityKey === e._key && o.field === f); const failedOp = failed.some(o => o.entityKey === e._key && o.field === f);
+      const pendChip = pending ? '<span class="pend-chip">unsynced</span>' : ''; const failChip = failedOp ? '<span class="pend-chip" style="background:#f85149;color:#fff">failed</span>' : '';
+      if (m.type === 'status'){ const cur = e.fields[f];
+        return `<div class="field"><label>${esc(m.label)} ${pendChip} ${failChip} <span class="rev" data-rev="${esc(f)}">server rev ${serverRev}</span> <span class="state-chip">${esc(stateGlyph(cur))}</span></label><div class="seg">
+          ${['pending','done','blocked'].map(v => `<button data-act="set" data-field="${esc(f)}" data-val="${v}" aria-pressed="${cur === v}">${v[0].toUpperCase() + v.slice(1)}</button>`).join('')}
+        </div></div>`;
+      }
+      return `<div class="field"><label>${esc(m.label)} ${pendChip} ${failChip} <span class="rev" data-rev="${esc(f)}">server rev ${serverRev}</span><span class="save-ind" data-ind="${esc(f)}"></span></label>
+        <textarea data-field="${esc(f)}" maxlength="${MAX_FIELD_LEN}" placeholder="Type here…">${esc(e.fields[f])}</textarea></div>`;
+    }).join('');
+    return `<div class="card" data-key="${esc(e._key)}"><div class="card-h"><span class="tag">${esc(e.type)}</span><h3>${esc(e.title)}</h3> ${hasConflict ? '<span class="badge-warn">⚠ conflict</span>' : ''}</div>${fields}<div class="hint">Saved locally first · ${esc(deviceId)}</div></div>`;
+  }).join('');
+  $('#process-list').innerHTML = html;
+}
+
+async function renderSync(){
+  const outbox = await getAll(local, 'outbox'); const failed = await getAll(local, 'failedOps'); const lastSync = await getOne(local, 'meta', 'lastSync'); const lastCur = await getOne(local, 'meta', 'lastCursor.' + CFG.orgId); const cCount = (await getAll(local, 'conflicts')).length;
+  let swStatus = 'not supported'; if ('serviceWorker' in navigator){ const r = await navigator.serviceWorker.getRegistration(); swStatus = !r ? 'not registered' : r.active ? '✅ active' : r.installing ? '⏳ installing' : '⚠ registered'; }
+  const ops = outbox.map(o => `<div class="op"><b>${esc(o.action === 'create' ? 'CREATE' : o.plainId + '.' + o.field)}</b> ← ${esc(String(o.value || o.title).slice(0,60))}<br>base rev ${o.baseFieldRev || 0} · v${o.version || 1} · ${esc(o.deviceId)}</div>`).join('') || '<div class="empty">Outbox empty.</div>';
+  const failRows = failed.length ? failed.map(o => `<div class="op"><b>${esc(o.plainId)}.${esc(o.field)}</b><br>reason: ${esc(o.reason || 'unknown')}<div class="seg" style="margin-top:6px"><button data-retry="${esc(o.opId)}">Retry</button><button data-discard="${esc(o.opId)}">Discard</button></div></div>`).join('') : '<div class="op">failed operations: <b>0</b></div>';
+  const tNote = CFG.backend === 'supabase' ? `<span class="pill online" style="margin-left:auto">Supabase · ${esc(CFG.orgId || 'no org')}</span>` : `<span class="pill" style="margin-left:auto;background:#2a3441;color:#8b98a5">Demo · ${esc(CFG.orgId)}</span>`;
+  
+  $('#tab-sync').innerHTML = `
+    <div class="card"><div class="card-h"><h3>Transport</h3>${tNote}</div><div class="seg" style="margin-top:10px">
+      <button id="toggleNet">${forcedOffline ? 'Go online' : 'Force offline'}</button>
+      <button id="openDevice2">Open 2nd device tab</button>
+      <button id="refreshPull">Pull from cloud</button>
+      <label style="display:flex;align-items:center;gap:8px;flex:1;min-width:180px">Failure rate <input id="flakyRange" type="range" min="0" max="80" value="${Math.round(CFG.flaky*100)}" style="flex:1"><span id="flakyVal" style="font:12px ui-monospace;width:36px;text-align:right">${Math.round(CFG.flaky*100)}%</span></label>
+    </div></div>
+    <div class="card"><div class="card-h"><h3>Outbox</h3><span class="rev">${outbox.length} op(s)</span></div>${ops}</div>
+    <div class="card"><div class="card-h"><h3>Failed</h3><span class="rev">${failed.length} op(s)</span></div>${failRows}</div>
+    <div class="card"><div class="card-h"><h3>State</h3></div>
+      <div class="op">org: <b>${esc(CFG.orgId || '—')}</b></div>
+      <div class="op">user: <b>${esc(session.user?.email || '—')}</b> (${esc(session.user?.via || '—')})</div>
+      <div class="op">service worker: <b>${esc(swStatus)}</b></div>
+      <div class="op">last full sync: <b>${lastSync ? new Date(lastSync.v).toLocaleString() : 'never'}</b></div>
+      <div class="op">pull cursor: <b>${lastCur ? lastCur.v : -1}</b></div>
+      <div class="op">conflicts: <b>${cCount}</b></div>
+    </div>`;
+
+  $('#toggleNet').onclick = () => { forcedOffline = !forcedOffline; toast(forcedOffline ? 'Forced offline' : 'Back online'); render(); if (!forcedOffline && isOnline() && !syncing) doSync(); };
+  $('#openDevice2').onclick = () => window.open(location.pathname + '?device=D-' + rand5(), '_blank');
+  $('#refreshPull').onclick = async () => { if (!isOnline()) return toast('Offline'); try { const n = await pull(); toast('Pulled ' + n + ' change(s)'); } catch(e){ toast('Pull failed: ' + e.message); } render(); };
+  const fr = $('#flakyRange'); if (fr) fr.oninput = () => { CFG.flaky = Number(fr.value)/100; $('#flakyVal').textContent = fr.value + '%'; };
+  $('#tab-sync').querySelectorAll('[data-retry]').forEach(b => b.onclick = () => retryFailedOp(b.dataset.retry));
+  $('#tab-sync').querySelectorAll('[data-discard]').forEach(b => b.onclick = () => discardFailedOp(b.dataset.discard));
+}
+
+async function renderConflicts(){
+  const list = await getAll(local, 'conflicts'); if (!list.length){ $('#tab-conflicts').innerHTML = '<div class="empty">No conflicts.</div>'; return; }
+  $('#tab-conflicts').innerHTML = list.map(c => `<div class="card"><div class="card-h"><span class="tag">Conflict</span><h3>${esc(c.plainId || c.entityKey)} · ${esc(c.field)}</h3></div>
+    <div class="two"><div class="box"><h4>Your value (base rev ${c.baseRev})</h4><div class="v">${esc(String(c.localValue ?? '')) || '(empty)'}</div></div>
+    <div class="box"><h4>Cloud value (rev ${c.serverRev})</h4><div class="v">${esc(String(c.serverValue ?? '')) || '(empty)'}</div></div></div>
+    <div class="seg" style="margin-top:10px"><button class="ok" data-res="${esc(c.id)}" data-choice="local">Keep mine</button><button data-res="${esc(c.id)}" data-choice="server">Accept cloud</button></div></div>`).join('');
+  $('#tab-conflicts').querySelectorAll('[data-res]').forEach(b => b.onclick = () => resolveConflict(b.dataset.res, b.dataset.choice));
+}
+
+async function renderAudit(){
+  const all = (await getAll(local, 'audit')).reverse();
+  const items = all.slice(0,60).map(a => `<div class="chain"><b>${esc(a.text)}</b><span class="h">${new Date(a.ts).toLocaleTimeString()} · ${esc(a.hash.slice(0,20))}…</span></div>`).join('') || '<div class="empty">No audit entries.</div>';
+  $('#tab-audit').innerHTML = `<div class="card"><div class="card-h"><h3>Tamper-evident ledger</h3><button id="verifyBtn" style="margin-left:auto">Verify chain</button></div><div class="hint">Hash: prevHash + ts + device + text.</div></div>${items}`;
+  $('#verifyBtn').onclick = async () => { const rows = await getAll(local, 'audit'); let prev = 'GENESIS', bad = 0; for (const r of rows){ const h = await auditHash(prev + '|' + r.ts + '|' + r.deviceId + '|' + r.text); if (h !== r.hash || r.prevHash !== prev) bad++; prev = r.hash; } toast(bad ? '❌ Chain broken' : '✅ Chain intact'); };
+}
+
+async function render(){
+  if (!session.authenticated) return;
+  await renderStatus();
+  if (tab === 'processes') await renderProcesses();
+  if (tab === 'sync') await renderSync();
+  if (tab === 'conflicts') await renderConflicts();
+  if (tab === 'audit') await renderAudit();
+}
+
+/* ================================================================
+   Events & Boot
+   ================================================================ */
+document.querySelectorAll('nav button').forEach(b => b.onclick = () => switchTab(b.dataset.tab));
+$('#syncBtn').onclick = doSync;
+$('#netBtn').onclick = () => { forcedOffline = !forcedOffline; toast(forcedOffline ? 'Forced offline' : 'Back online'); if (!forcedOffline && isOnline()) doSync(); render(); };
+$('#signOutBtn').onclick = () => { if (confirm('Sign out?')) signOut(); };
+
+$('#newTaskBtn').onclick = () => { $('#modal-overlay').hidden = false; $('#taskTitle').value = ''; $('#taskTitle').focus(); };
+$('#modalCancel').onclick = () => { $('#modal-overlay').hidden = true; };
+$('#modalCreate').onclick = async () => {
+  const title = $('#taskTitle').value.trim();
+  if (!title) return alert('Please enter a title');
+  $('#modal-overlay').hidden = true;
+  await createNewTask(title, $('#taskTemplate').value);
+};
+
+$('#tab-processes').addEventListener('click', e => {
+  const b = e.target.closest('button[data-act="set"]');
+  if (!b) return;
+  commitField(b.closest('.card').dataset.key, b.dataset.field, b.dataset.val);
+});
+
+const saveTimers = new Map();
+function scheduleSave(entityKey, field, value, ind){ const key = entityKey + '|' + field; clearTimeout(saveTimers.get(key)?.t); if (ind) ind.textContent = 'editing…'; const t = setTimeout(async () => { saveTimers.delete(key); const r = await commitField(entityKey, field, value, { silent: true }); if (ind) ind.textContent = r?.error ? 'not saved' : 'saved'; }, 450); saveTimers.set(key, { t }); }
+async function flushSave(entityKey, field, value, ind){ const key = entityKey + '|' + field; const e = saveTimers.get(key); if (!e) return; clearTimeout(e.t); saveTimers.delete(key); const r = await commitField(entityKey, field, value, { silent: true }); if (ind) ind.textContent = r?.error ? 'not saved' : 'saved'; }
+
+$('#tab-processes').addEventListener('input', e => {
+  const t = e.target.closest('textarea[data-field]');
+  if (!t) return; const card = t.closest('.card'); const ind = card.querySelector('[data-ind="' + t.dataset.field + '"]'); scheduleSave(card.dataset.key, t.dataset.field, t.value, ind);
+});
+$('#tab-processes').addEventListener('blur', e => {
+  const t = e.target.closest && e.target.closest('textarea[data-field]');
+  if (!t) return; const card = t.closest('.card'); const ind = card.querySelector('[data-ind="' + t.dataset.field + '"]'); flushSave(card.dataset.key, t.dataset.field, t.value, ind);
+}, true);
+
+window.addEventListener('online', async () => { if (!session.authenticated) return; toast('Network restored'); const q = (await getAll(local, 'outbox')).length; if (q) await doSync(); else { try { await pull(); render(); } catch(_){} } });
+window.addEventListener('offline', () => { if (session.authenticated) toast('Network lost'); render(); });
+
+(async function main(){
+  try { await initDBs(); } catch (e){ document.body.innerHTML = `<div class="warnbox" style="margin:40px">DB error: ${esc(e.message)}</div>`; return; }
+  const oauth = await handleOAuthReturn(); if (oauth) return;
+  session.authenticated = false; session.user = null; session.authToken = null; session.refreshToken = null; session.pendingEmail = null; session._demoCode = null;
+  authView = 'login'; await renderAuth();
+})();
+
+if ('serviceWorker' in navigator && location.protocol.startsWith('http')){ navigator.serviceWorker.register('./sw.js').catch(e => console.warn('SW failed:', e)); }
+</script>
+</body>
+</html>
